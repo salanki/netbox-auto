@@ -34,7 +34,7 @@ def main():
 
     data = resp.json()
     for name, data in sorted(data.items(), key=lambda x: (ip_str_key(x[1]["primary"]), x[0])):
-        for s in os.environ["DNS_STRIP"]:
+        for s in os.environ["DNS_STRIP"].split(','):
             name = name.replace(s, '')
         if "override" in data:
             forward_records.extend(data["override"])

@@ -57,15 +57,16 @@ def get_zone():
                 ipam_ipaddress
             JOIN dcim_device ON ipam_ipaddress.id = dcim_device.primary_ip4_id
             JOIN tenancy_tenant ON ipam_ipaddress.tenant_id = tenancy_tenant.id
+            JOIN tenancy_tenantgroup ON tenancy_tenant.group_id = tenancy_tenantgroup.id
             WHERE
                 bool(ipam_ipaddress.status) AND
                 bool(dcim_device.status) AND
                 ipam_ipaddress.family = 4 AND
-                tenancy_tenant.slug = %s 
+                tenancy_tenantgroup.slug = %s
             ORDER BY
                 ipam_ipaddress.address ASC,
                 dcim_device.name ASC
-        """, (app.config["NETBOX_TENANT_SLUG"],))
+        """, (app.config["NETBOX_TENANTGROUP_SLUG"],))
 
         for row in cur:
             result = {"primary": row["i_address"].ip.compressed}
@@ -98,16 +99,17 @@ def get_zone():
             JOIN dcim_interface ON ipam_ipaddress.interface_id = dcim_interface.id
             JOIN dcim_device ON dcim_interface.device_id = dcim_device.id
             JOIN tenancy_tenant ON ipam_ipaddress.tenant_id = tenancy_tenant.id
+            JOIN tenancy_tenantgroup ON tenancy_tenant.group_id = tenancy_tenantgroup.id
             WHERE
                 bool(ipam_ipaddress.status) AND
                 bool(dcim_device.status) AND
                 ipam_ipaddress.family = 4 AND
-                tenancy_tenant.slug = %s AND
+                tenancy_tenantgroup.slug = %s AND
                 ipam_ipaddress.id != dcim_device.primary_ip4_id
             ORDER BY
                 ipam_ipaddress.address ASC,
                 dcim_device.name ASC
-        """, (app.config["NETBOX_TENANT_SLUG"],))
+        """, (app.config["NETBOX_TENANTGROUP_SLUG"],))
 
         for row in cur:
             if row["d_name"] in results:
@@ -115,6 +117,32 @@ def get_zone():
                 if row["i_address"] not in secondary_ips:
                     secondary_ips.append(row["i_address"].ip.compressed)
 
+        # Non device leases
+
+        cur.execute("""\
+            SELECT DISTINCT
+                ipam_ipaddress.address as i_address,
+                ipam_ipaddress.description as d_name,
+                tenancy_tenant.slug as t_slug
+            FROM
+                ipam_ipaddress
+            JOIN tenancy_tenant ON ipam_ipaddress.tenant_id = tenancy_tenant.id
+            JOIN tenancy_tenantgroup ON tenancy_tenant.group_id = tenancy_tenantgroup.id
+            WHERE
+                bool(ipam_ipaddress.status) AND
+                ipam_ipaddress.family = 4 AND
+                char_length(ipam_ipaddress.description) > 2 AND
+                position(' ' in ipam_ipaddress.description) = 0 AND
+                tenancy_tenantgroup.slug = %s
+            ORDER BY
+                ipam_ipaddress.address ASC
+        """, (app.config["NETBOX_TENANTGROUP_SLUG"],))
+
+        for row in cur:
+            if row["d_name"] not in results and row["i_address"].ip.compressed not in map(lambda x: x['primary'], results.values()):
+                result = {"primary": row["i_address"].ip.compressed}
+                name = row["d_name"] + '.' + row["t_slug"]
+                results[name.lower()] = result
 
     return jsonify(results)
 
@@ -125,3 +153,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
