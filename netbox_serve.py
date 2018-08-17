@@ -24,13 +24,12 @@ basic_auth = BasicAuth(app)
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
-        url = urllib.parse.urlparse(os.environ["DATABASE_URL"])
         db = g._database = psycopg2.connect(
-            database=url.path[1:],
-            user=url.username,
-            password=url.password,
-            host=url.hostname,
-            port=url.port)
+            database=os.environ["DB_NAME"],
+            user=os.environ["DB_USER"],
+            password=os.environ["DB_PASSWORD"],
+            host=os.environ["DB_HOST"],
+            port=5432)
     return db
 
 
@@ -42,11 +41,9 @@ def teardown_db(exception):
 
 
 @app.route("/devices")
-@basic_auth.required
 def get_zone():
 
     results = {}
-
     with get_db().cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
 
         # Primary addresses
@@ -64,7 +61,7 @@ def get_zone():
                 bool(ipam_ipaddress.status) AND
                 bool(dcim_device.status) AND
                 ipam_ipaddress.family = 4 AND
-                tenancy_tenant.slug = %s
+                tenancy_tenant.slug = %s 
             ORDER BY
                 ipam_ipaddress.address ASC,
                 dcim_device.name ASC
@@ -84,6 +81,7 @@ def get_zone():
                         continue
                     if not isinstance(obj, dict):
                         continue
+
                     if "cnames" in obj and isinstance(obj["cnames"], list) and all(isinstance(x, str) for x in obj["cnames"]):
                         result["cnames"] = obj["cnames"]
             results[row["d_name"].lower()] = result
@@ -122,7 +120,7 @@ def get_zone():
 
 
 def main():
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0')
 
 
 if __name__ == "__main__":
