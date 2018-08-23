@@ -17,4 +17,4 @@ Copy `dns.env` from `netbox-auto` to the parent folder (same as docker-compose.y
 
 Bring up the container by `docker-compose up -d dns`
 
-Now add the following to your crontab: `*/10 * * * * docker exec -it netboxdocker_dns_1 python netbox_update.py && killalla -HUP named`
+Now add the following to your crontab: `*/10 * * * * docker exec netboxdocker_dns_1 python netbox_update.py && killalla -HUP named`
