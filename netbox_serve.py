@@ -111,7 +111,8 @@ def get_zone():
         for row in cur:
             if row["d_name"] not in results and row["i_address"].ip.compressed not in map(lambda x: x['primary'], results.values()):
                 result = {"primary": row["i_address"].ip.compressed}
-                name = row["d_name"] + '.' + row["t_slug"]
+                postfix = '.' + row["t_slug"] if row["t_slug"] != app.config["DNS_NATIVE_TENANT"] else ''
+                name = row["d_name"] + postfix 
                 results[name.lower()] = result
         # Secondary addresses
 
