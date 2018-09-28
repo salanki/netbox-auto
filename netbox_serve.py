@@ -93,16 +93,20 @@ def get_zone():
             SELECT DISTINCT
                 ipam_ipaddress.address as i_address,
                 ipam_ipaddress.description as d_name,
-                tenancy_tenant.slug as t_slug
+                tenancy_tenant.slug as t_slug,
+                taggit_tag.name as tag
             FROM
                 ipam_ipaddress
             JOIN tenancy_tenant ON ipam_ipaddress.tenant_id = tenancy_tenant.id
             JOIN tenancy_tenantgroup ON tenancy_tenant.group_id = tenancy_tenantgroup.id
+            LEFT OUTER JOIN taggit_taggeditem ON tenancy_tenant.id = taggit_taggeditem.object_id
+            LEFT OUTER JOIN taggit_tag ON taggit_taggeditem.tag_id = taggit_tag.id
             WHERE
                 bool(ipam_ipaddress.status) AND
                 ipam_ipaddress.family = 4 AND
                 char_length(ipam_ipaddress.description) > 2 AND
                 position(' ' in ipam_ipaddress.description) = 0 AND
+                (taggit_tag.name = 'dns-root-zone-only' OR taggit_tag.name = 'dns-root-zone-append' OR taggit_tag.name is null) AND
                 tenancy_tenantgroup.slug = %s
             ORDER BY
                 ipam_ipaddress.address ASC
@@ -111,8 +115,16 @@ def get_zone():
         for row in cur:
             if row["d_name"] not in results and row["i_address"].ip.compressed not in map(lambda x: x['primary'], results.values()):
                 result = {"primary": row["i_address"].ip.compressed}
-                postfix = '.' + row["t_slug"] if row["t_slug"] != app.config["DNS_NATIVE_TENANT"] else ''
-                name = row["d_name"] + postfix 
+                postfix = '.' + row["t_slug"]
+
+                if row["tag"] == 'dns-root-zone-append':
+                    name = row["d_name"] + postfix
+                    result["cnames"] = [row["d_name"]]
+                elif row["tag"] == 'dns-root-zone-only':
+                    name = row["d_name"]
+                else:
+                    name = row["d_name"] + postfix
+
                 results[name.lower()] = result
         # Secondary addresses
 
