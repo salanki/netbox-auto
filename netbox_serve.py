@@ -3,6 +3,7 @@
 import json
 import os
 import urllib.parse
+import re
 
 import jinja2
 
@@ -116,14 +117,17 @@ def get_zone():
             if row["d_name"] not in results and row["i_address"].ip.compressed not in map(lambda x: x['primary'], results.values()):
                 result = {"primary": row["i_address"].ip.compressed}
                 postfix = '.' + row["t_slug"]
+               
+                # This needs to be made much better. Proably with a regex match in the SQL
+                raw_name = re.sub('\.$', '', row["d_name"]).replace('..','').replace('_','-')
 
                 if row["tag"] == 'dns-root-zone-append':
-                    name = row["d_name"] + postfix
+                    name = raw_name + postfix
                     result["cnames"] = [row["d_name"]]
                 elif row["tag"] == 'dns-root-zone-only':
-                    name = row["d_name"]
+                    name = raw_name
                 else:
-                    name = row["d_name"] + postfix
+                    name = raw_name + postfix
 
                 results[name.lower()] = result
         # Secondary addresses

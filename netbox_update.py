@@ -36,6 +36,7 @@ def main():
     for name, data in sorted(data.items(), key=lambda x: (ip_str_key(x[1]["primary"]), x[0])):
         for s in os.environ["DNS_STRIP"].split(','):
             name = name.replace(s, '')
+        name = name.replace('_', '-') # Can't have DNS names with underscore. Don't know if this is the right place to do the replace but here it is.
         if "override" in data:
             forward_records.extend(data["override"])
             continue
